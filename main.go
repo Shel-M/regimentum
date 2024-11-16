@@ -2,33 +2,38 @@ package main
 
 import (
 	"html/template"
+	"log"
 	"net/http"
+	"path/filepath"
 )
 
-type Templ struct {
-	name     string
-	template *template.Template
+func main() {
+	fs := http.FileServer(http.Dir("./static/"))
+	http.Handle("/static/", http.StripPrefix("/static/", fs))
+
+	http.HandleFunc("/", index)
+
+	log.Print("Starting server...")
+	err := http.ListenAndServe(":3000", nil)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 }
 
-var templates []Templ
-
-func main() {
-	http.HandleFunc("/", index)
-	t, err := template.ParseFiles("./templates/index.html")
-	if err != nil {
-		println("error {}", err.Error())
+func index(w http.ResponseWriter, r *http.Request) {
+	log.Print(r.URL.Path)
+	if r.URL.Path == "/" {
+		http.Redirect(w, r, "/index.html", http.StatusSeeOther)
 		return
 	}
-	templates = append(templates, Templ{"index", t})
 
-	http.ListenAndServe(":3000", nil)
-}
+	index_path := filepath.Join("templates", "index.html")
+	template_path := filepath.Join("templates", filepath.Clean(r.URL.Path))
+	log.Print(template_path)
 
-func index(w http.ResponseWriter, _ *http.Request) {
-	for _, template := range templates {
-		if template.name == "index" {
-			template.template.Execute(w, "")
-			return
-		}
+	tmpl, _ := template.ParseFiles(index_path, template_path)
+	err := tmpl.ExecuteTemplate(w, "layout", nil)
+	if err != nil {
+		log.Fatal(err.Error())
 	}
 }
